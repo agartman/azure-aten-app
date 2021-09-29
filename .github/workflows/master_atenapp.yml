@@ -10,14 +10,35 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_FUNCTIONAPP_PACKAGE_PATH: '.' # set this to the path to your web app project, defaults to the repository root
-  NODE_VERSION: '14.x' # set this to the node version to use (supports 8.x, 10.x, 12.x)
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: "." # set this to the path to your web app project, defaults to the repository root
+  NODE_VERSION: "14.x" # set this to the node version to use (supports 8.x, 10.x, 12.x)
 
 jobs:
+  unit-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+        with:
+          node-version: 14 # TODO node version?
+      - name: Cache npm dependencies
+        id: npm_cache
+        uses: actions/cache@master
+        with:
+          path: |
+            ~/.npm
+            node_modules
+          key: ${{ runner.os }}-v1-npm-${{ hashFiles('**/package-lock.json') }}
+      - name: Install npm dependencies
+        if: steps.npm_cache.outputs.cache-hit != 'true'
+        run: npm ci
+      - name: Run unit tests
+        run: npm run test
   build-and-deploy:
+    needs: [unit-test]
     runs-on: windows-latest
     steps:
-      - name: 'Checkout GitHub Action'
+      - name: "Checkout GitHub Action"
         uses: actions/checkout@v2
 
       - name: Setup Node ${{ env.NODE_VERSION }} Environment
@@ -25,7 +46,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: 'Resolve Project Dependencies Using Npm'
+      - name: "Resolve Project Dependencies Using Npm"
         shell: pwsh
         run: |
           pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
@@ -34,11 +55,11 @@ jobs:
           npm run test --if-present
           popd
 
-      - name: 'Run Azure Functions Action'
+      - name: "Run Azure Functions Action"
         uses: Azure/functions-action@v1
         id: fa
         with:
-          app-name: 'AtenApp'
-          slot-name: 'Production'
+          app-name: "AtenApp"
+          slot-name: "Production"
           package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_5428EF323C9140BA81F939246FC0496D }}
